@@ -3,7 +3,10 @@
 # CTNET Packet Capture Tee Script
 #
 # Author:  Rudy Broersma <r.broersma@ctnet.nl>
-# Version: v1.0 - February 2024
+# Version: v1.1 - February 2024
+#
+# ChangeLog:
+# 29-02-2024    Rudy    Removed default filter, as it prevented entering enter to capture without any filters
 #
 function jumpto
 {
@@ -17,16 +20,14 @@ MYPID=$$
 DEFAULTIP=10.255.255.151
 DEFAULTUSER=CTNET
 DEFAULTPASSWORD=''
-#DEFAULTFILTER="diag sniffer packet any 'icmp'"
 DEFAULTINTF=any
-DEFAULTFILTER="icmp"
 start=${1:-start}
 jumpto "$start"  # GOTO start: by default
 
 ############ Test some shit and make soms preps
 mkdir -p ~/complete
 mkdir -p ~/sessions
-if [ ! -f "/usr/bin/sshpass2" ]; then
+if [ ! -f "/usr/bin/sshpass" ]; then
   echo "ERROR: sshpass is not installed. Please run 'apt-get update && apt-get install sshpass'"
   exit
 fi
@@ -102,9 +103,7 @@ echo "Invalid input. Try again..."
 jumpto interface
 
 #filter:
-read -p "Enter filter [$DEFAULTFILTER]: " FILTER
-FILTER=${FILTER:-$DEFAULTFILTER}
-if   [ "$DEFAULTFILTER" = "$FILTER" ]; then jumpto startsniffer; fi
+read -p "Enter filter (eg: icmp): " FILTER
 
 #verifyfilter:
 echo "You entered [$FILTER]. Is this correct? [y/n]"
