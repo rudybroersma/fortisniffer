@@ -6,7 +6,9 @@
 # Version: v1.1 - February 2024
 #
 # ChangeLog:
-# 29-02-2024    Rudy    Removed default filter, as it prevented entering enter to capture without any filters
+# 29-02-2024	Rudy	Removed default filter, as it prevented entering enter to capture without any filters
+# 04-04-2024	Rudy	Add connection test
+#
 #
 function jumpto
 {
@@ -20,7 +22,9 @@ MYPID=$$
 DEFAULTIP=10.255.255.151
 DEFAULTUSER=CTNET
 DEFAULTPASSWORD=''
+#DEFAULTFILTER="diag sniffer packet any 'icmp'"
 DEFAULTINTF=any
+DEFAULTFILTER="icmp"
 start=${1:-start}
 jumpto "$start"  # GOTO start: by default
 
@@ -84,7 +88,7 @@ echo "Invalid input. Try again..."
 jumpto verifyusername
 
 #password:
-read -s -p "Enter password: " PASSWORD
+read -s -p "Enter password: " SSHPASS
 echo ""
 
 #interface:
@@ -104,21 +108,37 @@ jumpto interface
 
 #filter:
 read -p "Enter filter (eg: icmp): " FILTER
+#FILTER=${FILTER:-$DEFAULTFILTER}
+#if   [ "$DEFAULTFILTER" = "$FILTER" ]; then jumpto startsniffer; fi
 
 #verifyfilter:
 echo "You entered [$FILTER]. Is this correct? [y/n]"
 read -n 1 -s TRUTHVALUE
 
-if   [ "${TRUTHVALUE,,}" = "y" ]; then jumpto startsniffer
+if   [ "${TRUTHVALUE,,}" = "y" ]; then jumpto testconnection
 elif [ "${TRUTHVALUE,,}" = "n" ]; then jumpto filter
 fi
 echo "Invalid input. Try again..."
 jumpto filter
 
+#testconnection:
+echo -n "Testing SSH connection... "
+export SSHPASS
+timeout 3 /usr/bin/sshpass -e ssh -o "StrictHostKeyChecking=no" $USERNAME@$FORTIIP "exit" 2>&1 > /dev/null
+if [ $? -eq 0 ];
+then
+  echo "OK!"
+  jumpto startsniffer
+else
+  echo "FAILED! Verify IP/hostname, credentials and if SSH access has been enabled on the FortiGate"
+  exit
+fi
+
+
 #startsniffer:
 echo "Starting sniffer in the background. Run this script again for status and live capture"
-PASSWORD=$DEFAULTPASSWORD
-screen -S $MYPID -d -m bash -c "/usr/bin/sshpass -p \"$PASSWORD\" ssh -o \"StrictHostKeyChecking=no\" $USERNAME@$FORTIIP \"diag sniffer packet '$INTF' '$FILTER' 6 0 1\" 2>&1 | tee ~/sessions/$MYPID.txtpcap; perl ~/fgt2eth.pl -in ~/sessions/$MYPID.txtpcap -out ~/complete/$MYPID.pcap"
+export SSHPASS
+screen -S $MYPID -d -m bash -c "/usr/bin/sshpass -e ssh -o \"StrictHostKeyChecking=no\" $USERNAME@$FORTIIP \"diag sniffer packet '$INTF' '$FILTER' 6 0 1\" 2>&1 | tee ~/sessions/$MYPID.txtpcap; perl ~/fgt2eth.pl -in ~/sessions/$MYPID.txtpcap -out ~/complete/$MYPID.pcap"
 if [ $? -eq 0 ];
 then
   echo "Sniffer started succesfully"
